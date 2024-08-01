@@ -5,11 +5,11 @@ import '../styles/comicBookList.css';
 const ComicBookList = () => {
     const [comicBooks, setComicBooks] = useState([]);
     const [selectedComic, setSelectedComic] = useState(null);
-    const [editForm, setEditForm] = useState(null); // State for the edit form
+    const [editForm, setEditForm] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [publishers, setPublishers] = useState([]);
     const [genres, setGenres] = useState([]);
-    const { searchTerm: routeSearchTerm } = useParams();
+    const { searchTerm: routeSearchTerm, comicId } = useParams();
 
     useEffect(() => {
         const fetchComics = async () => {
@@ -59,7 +59,42 @@ const ComicBookList = () => {
         fetchComics();
         fetchPublishers();
         fetchGenres();
-    }, [searchTerm, routeSearchTerm]);
+
+        if (comicId) {
+            const fetchComic = async () => {
+                try {
+                    const response = await fetch(`http://localhost:5555/api/comicbooks/${comicId}`);
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    const data = await response.json();
+                    setSelectedComic(data);
+                } catch (error) {
+                    console.error('Error fetching comic book:', error);
+                }
+            };
+
+            fetchComic();
+        }
+    }, [searchTerm, routeSearchTerm, comicId]);
+
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                const [comicsResponse, genresResponse] = await Promise.all([
+                    fetch('http://localhost:5555/api/comicbooks'),
+                    fetch('http://localhost:5555/api/genres')
+                ]);
+                const comicsData = await comicsResponse.json();
+                const genresData = await genresResponse.json();
+                setComicBooks(comicsData);
+                setGenres(genresData);
+            } catch (error) {
+                console.error('Error fetching data:', error);
+            }
+        };
+        fetchData();
+    }, []);
 
     const handleComicClick = (comic) => {
         setSelectedComic(comic);
@@ -90,8 +125,8 @@ const ComicBookList = () => {
     const handleEditClick = (comic) => {
         setEditForm({
             ...comic,
-            genre_ids: comic.genres.map(genre => genre.name).join(', '), // Pre-select genres as comma-separated names
-            reviews: comic.reviews // Pre-fill reviews
+            genre_ids: comic.genres.map(genre => genre.name).join(', '),
+            reviews: comic.reviews
         });
     };
 
@@ -112,7 +147,6 @@ const ComicBookList = () => {
     const handleEditSubmit = (e) => {
         e.preventDefault();
 
-        // Convert genre names to IDs
         const genreNames = editForm.genre_ids.split(',').map(name => name.trim());
         const genreIds = genres
             .filter(genre => genreNames.includes(genre.name))
@@ -129,7 +163,7 @@ const ComicBookList = () => {
                 image_url: editForm.image_url,
                 publisher_id: editForm.publisher_id,
                 genre_ids: genreIds,
-                reviews: editForm.reviews // Include reviews
+                reviews: editForm.reviews
             }),
         })
             .then(response => response.json())
@@ -137,7 +171,7 @@ const ComicBookList = () => {
                 setComicBooks(comicBooks.map(comic =>
                     comic.id === editForm.id ? { ...comic, ...editForm } : comic
                 ));
-                setEditForm(null); // Close the edit form after submission
+                setEditForm(null);
             })
             .catch(error => console.error('Error updating comic book:', error));
     };
@@ -215,26 +249,41 @@ const ComicBookList = () => {
                     </form>
                 </div>
             )}
-            {comicBooks.length > 0 ? (
-                <div className="comic-books-container">
-                    {comicBooks.map(comic => (
-                        <div className="comic-card" key={comic.id}>
-                            <h2>{comic.title}</h2>
-                            <p>Publisher: {comic.publisher}</p>
-                            <p>Rating: {comic.rating}</p>
-                            <p>Reviews: {comic.reviews}</p>
-                            <img
-                                src={comic.image_url ? `http://localhost:5555${comic.image_url}` : 'default-image-url'}
-                                alt={comic.title}
-                            />
-                            <p>Genres: {comic.genres.map(genre => genre.name).join(', ')}</p>
-                            <button onClick={() => handleEditClick(comic)}>Edit</button>
-                            <button onClick={(e) => handleDelete(comic.id, e)}>Delete</button>
-                        </div>
-                    ))}
+            {selectedComic ? (
+                <div className="comic-details">
+                    <h2>{selectedComic.title}</h2>
+                    <p>Publisher: {selectedComic.publisher}</p>
+                    <p>Rating: {selectedComic.rating}</p>
+                    <p>Reviews: {selectedComic.reviews}</p>
+                    <img
+                        src={selectedComic.image_url ? `http://localhost:5555${selectedComic.image_url}` : 'default-image-url'}
+                        alt={selectedComic.title}
+                    />
+                    <p>Genres: {selectedComic.genres.map(genre => genre.name).join(', ')}</p>
+                    <button onClick={handleCloseComic}>Close</button>
                 </div>
             ) : (
-                <p>No comic books found.</p>
+                <div className="comic-books-container">
+                    {comicBooks.length > 0 ? (
+                        comicBooks.map(comic => (
+                            <div className="comic-card" key={comic.id} onClick={() => handleComicClick(comic)}>
+                                <h2>{comic.title}</h2>
+                                <p>Publisher: {comic.publisher}</p>
+                                <p>Rating: {comic.rating}</p>
+                                <p>Reviews: {comic.reviews}</p>
+                                <img
+                                    src={comic.image_url ? `http://localhost:5555${comic.image_url}` : 'default-image-url'}
+                                    alt={comic.title}
+                                />
+                                <p>Genres: Action</p> {/* Display "Action" for all comics */}
+                                <button onClick={(e) => handleEditClick(comic, e)}>Edit</button>
+                                <button onClick={(e) => handleDelete(comic.id, e)}>Delete</button>
+                            </div>
+                        ))
+                    ) : (
+                        <p>No comic books available</p>
+                    )}
+                </div>
             )}
         </div>
     );

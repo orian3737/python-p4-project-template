@@ -38,11 +38,33 @@ class ComicBookGenre(db.Model):
     comic_book_id = db.Column(db.Integer, db.ForeignKey('comic_book.id'), nullable=False)
     genre_id = db.Column(db.Integer, db.ForeignKey('genre.id'), nullable=False)
     user_rating = db.Column(db.Float, nullable=False)
-    
     comic_book = db.relationship('ComicBook', backref=db.backref('comic_book_genres', lazy='subquery'))
     genre = db.relationship('Genre', backref=db.backref('comic_book_genres', lazy='subquery'))
 
 # Resources
+class PublisherResource(Resource):
+    def get(self):
+        try:
+            publishers = Publisher.query.all()
+            return [{'id': p.id, 'name': p.name} for p in publishers], 200
+        except Exception as e:
+            app.logger.error(f"Error fetching publishers: {str(e)}")
+            return {'error': 'Internal Server Error'}, 500
+
+    def post(self):
+        try:
+            data = request.json
+            name = data.get('name')
+            if not name:
+                return {'error': 'Name is required'}, 400
+            new_publisher = Publisher(name=name)
+            db.session.add(new_publisher)
+            db.session.commit()
+            return {'id': new_publisher.id, 'name': new_publisher.name}, 201
+        except Exception as e:
+            app.logger.error(f"Error adding publisher: {str(e)}")
+            return {'error': 'Internal Server Error'}, 500
+
 class ComicBookResource(Resource):
     def get(self, comic_book_id=None):
         try:
@@ -60,7 +82,7 @@ class ComicBookResource(Resource):
                         'publisher': cb.publisher.name if cb.publisher else 'Unknown Publisher',
                         'rating': cb.rating,
                         'reviews': cb.reviews,
-                        'image_url': f'/static/images/{cb.image_url}' if cb.image_url else None,
+                        'image_url': f'/static/images/{cb.image_url}' if cb.image_url and not cb.image_url.startswith(('static/images/', '/static/images/')) else cb.image_url,
                         'genres': [cg.genre.name if cg.genre else 'Unknown Genre' for cg in cb.comic_book_genres]
                     } for cb in comic_books
                 ], 200
@@ -74,7 +96,7 @@ class ComicBookResource(Resource):
                     'publisher': comic_book.publisher.name if comic_book.publisher else 'Unknown Publisher',
                     'rating': comic_book.rating,
                     'reviews': comic_book.reviews,
-                    'image_url': f'/static/images/{comic_book.image_url}' if comic_book.image_url else None,
+                    'image_url': f'/static/images/{comic_book.image_url}' if comic_book.image_url and not comic_book.image_url.startswith(('static/images/', '/static/images/')) else comic_book.image_url,
                     'genres': [cg.genre.name if cg.genre else 'Unknown Genre' for cg in comic_book.comic_book_genres]
                 }, 200
         except Exception as e:
@@ -102,7 +124,7 @@ class ComicBookResource(Resource):
                 publisher_id=publisher_id,
                 rating=rating,
                 reviews=0,
-                image_url=image_url
+                image_url=image_url  # Save only the filename
             )
             db.session.add(new_comic_book)
             db.session.commit()
@@ -122,7 +144,7 @@ class ComicBookResource(Resource):
         except Exception as e:
             app.logger.error(f"Error adding comic book: {str(e)}")
             return {'error': 'Internal Server Error'}, 500
-        
+
     def put(self, comic_book_id):
         try:
             data = request.json
@@ -137,7 +159,7 @@ class ComicBookResource(Resource):
             
             image = data.get('image_url')
             if image:
-                comic_book.image_url = image
+                comic_book.image_url = image  # Save only the filename
 
             db.session.commit()
 
@@ -147,7 +169,7 @@ class ComicBookResource(Resource):
                 'publisher': comic_book.publisher.name if comic_book.publisher else 'Unknown Publisher',
                 'rating': comic_book.rating,
                 'reviews': comic_book.reviews,
-                'image_url': f'/static/images/{comic_book.image_url}' if comic_book.image_url else None
+                'image_url': f'/static/images/{comic_book.image_url}' if comic_book.image_url and not comic_book.image_url.startswith(('static/images/', '/static/images/')) else comic_book.image_url
             }, 200
         except Exception as e:
             app.logger.error(f"Error updating comic book: {str(e)}")
@@ -156,74 +178,33 @@ class ComicBookResource(Resource):
     def delete(self, comic_book_id):
         try:
             comic_book = ComicBook.query.get(comic_book_id)
-            if not comic_book:
+            if comic_book is None:
                 return {'error': 'Comic book not found'}, 404
-
-            # Delete related ComicBookGenre entries
-            ComicBookGenre.query.filter_by(comic_book_id=comic_book_id).delete()
-
-            # Delete the comic book
+            
             db.session.delete(comic_book)
             db.session.commit()
-
             return {'message': 'Comic book deleted successfully!'}, 200
         except Exception as e:
             app.logger.error(f"Error deleting comic book: {str(e)}")
             return {'error': 'Internal Server Error'}, 500
+class GenreResource(Resource):
+    def get(self):
+        try:
+            genres = Genre.query.all()
+            return [{'id': g.id, 'name': g.name} for g in genres], 200
+        except Exception as e:
+            app.logger.error(f"Error fetching genres: {str(e)}")
+            return {'error': 'Internal Server Error'}, 500
 
-# Add resource to API
+
+# Resources
+api.add_resource(GenreResource, '/api/genres')
+api.add_resource(PublisherResource, '/api/publishers')
 api.add_resource(ComicBookResource, '/api/comicbooks', '/api/comicbooks/<int:comic_book_id>')
 
-@app.route('/api/publishers', methods=['GET'])
-def get_publishers():
-    try:
-        publishers = Publisher.query.all()
-        return jsonify([{'id': p.id, 'name': p.name} for p in publishers])
-    except Exception as e:
-        app.logger.error(f"Error fetching publishers: {str(e)}")
-        return {'error': 'Internal Server Error'}, 500
-
-@app.route('/api/publishers', methods=['POST'])
-def add_publisher():
-    try:
-        data = request.json
-        name = data.get('name')
-        if not name:
-            return {'error': 'Publisher name is required'}, 400
-        
-        new_publisher = Publisher(name=name)
-        db.session.add(new_publisher)
-        db.session.commit()
-        
-        return {'id': new_publisher.id, 'name': new_publisher.name}, 201
-    except Exception as e:
-        app.logger.error(f"Error adding publisher: {str(e)}")
-        return {'error': 'Internal Server Error'}, 500
-
-@app.route('/api/genres', methods=['POST'])
-def add_genre():
-    try:
-        data = request.json
-        name = data.get('name')
-        if not name:
-            return {'error': 'Genre name is required'}, 400
-        
-        new_genre = Genre(name=name)
-        db.session.add(new_genre)
-        db.session.commit()
-        
-        return {'id': new_genre.id, 'name': new_genre.name}, 201
-    except Exception as e:
-        app.logger.error(f"Error adding genre: {str(e)}")
-        return {'error': 'Internal Server Error'}, 500
-
-@app.route('/static/<path:filename>')
-def serve_static(filename):
-    return send_from_directory(app.static_folder, filename)
-
-@app.route('/')
-def index():
-    return '<h1>Project Server</h1>'
+@app.route('/static/images/<path:filename>')
+def serve_image(filename):
+    return send_from_directory('static/images', filename)
 
 if __name__ == '__main__':
-    app.run(port=5555, debug=True)
+    app.run(debug=True)

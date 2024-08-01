@@ -17,155 +17,161 @@ const ComicBookForm = () => {
   const [newGenre, setNewGenre] = useState('');
 
   useEffect(() => {
-    fetch('/api/publishers')
-      .then(response => response.json())
-      .then(data => setPublishers(data))
-      .catch(error => console.error('Error fetching publishers:', error));
+    const fetchPublishers = async () => {
+      try {
+        const response = await fetch('/api/publishers');
+        if (!response.ok) {
+          throw new Error('Network response was not ok');
+        }
+        const data = await response.json();
+        setPublishers(data);
+      } catch (error) {
+        console.error('Failed to fetch publishers:', error);
+      }
+    };
+    fetchPublishers();
   }, []);
-
-  const addPublisher = async () => {
-    if (!newPublisher) return;
-    try {
-      const response = await axios.post('http://localhost:5555/api/publishers', { name: newPublisher });
-      setPublishers([...publishers, { id: response.data.id, name: newPublisher }]);
-      setNewPublisher('');
-    } catch (error) {
-      console.error('Error adding publisher:', error);
-    }
-  };
-
-  const addGenre = async () => {
-    if (!newGenre) return;
-    try {
-      const response = await axios.post('http://localhost:5555/api/genres', { name: newGenre });
-      setGenres([...genres, { name: newGenre }]);
-      setNewGenre('');
-    } catch (error) {
-      console.error('Error adding genre:', error);
-    }
-  };
-
-  const initialValues = {
-    title: '',
-    year: '',
-    publisher: '',
-    genres: [],
-    image: null,
-    rating: '',
-  };
-
-  const validationSchema = Yup.object({
-    title: Yup.string().required('Required'),
-    year: Yup.number().positive('Must be a positive number').required('Required'),
-    publisher: Yup.string().required('Required'),
-    genres: Yup.array().min(1, 'Select at least one genre').required('Required'),
-    image: Yup.mixed().required('Image is required'),
-    rating: Yup.number().min(1, 'Rating must be at least 1').max(5, 'Rating can be at most 5').required('Required'),
-  });
 
   const handleSubmit = async (values, { setSubmitting, resetForm }) => {
     const formData = new FormData();
     formData.append('title', values.title);
-    formData.append('year', values.year);
     formData.append('publisher', values.publisher);
     formData.append('rating', values.rating);
     formData.append('image', values.image);
-    values.genres.forEach(genre => formData.append('genres[]', genre));
+    formData.append('genres[]', values.genres);
 
     try {
-      const response = await axios.post('http://localhost:5555/api/comicbooks', formData);
-      console.log('Comic book added successfully:', response.data);
-      setSubmitting(false);
+      await axios.post('/api/comicbooks', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
       resetForm();
+      setNewPublisher('');
+      setNewGenre('');
+      alert('Comic book added successfully!');
     } catch (error) {
-      console.error('Error submitting form:', error);
+      console.error('Failed to add comic book:', error);
+      alert('Error adding comic book. Please try again.');
+    } finally {
       setSubmitting(false);
     }
   };
 
+  const validationSchema = Yup.object({
+    title: Yup.string().required('Title is required'),
+    publisher: Yup.string().required('Publisher is required'),
+    rating: Yup.number().min(0).max(10).required('Rating is required'),
+    genres: Yup.array().min(1, 'At least one genre is required'),
+  });
+
   return (
     <Formik
-      initialValues={initialValues}
+      initialValues={{
+        title: '',
+        publisher: '',
+        rating: '',
+        image: null,
+        genres: [],
+      }}
       validationSchema={validationSchema}
       onSubmit={handleSubmit}
     >
       {({ setFieldValue, isSubmitting }) => (
-        <Form className="form-container">
-          <h1>Welcome to ComiX Zone</h1>
-          <p>
-            This is a comic book database that keeps you updated on recent comics from the most popular comic book publishers and popular titles.
-          </p>
-          <p>
-            If you would like to add a new comic or comic book publisher, please feel free to use this form!
-          </p>
+        <Form className="comic-book-form">
+          <h1>Comic Book Form</h1>
           <div className="form-group">
-            <label htmlFor="title">Title</label>
-            <Field type="text" name="title" />
-            <ErrorMessage name="title" component="div" />
-          </div>
-          <div className="form-group">
-            <label htmlFor="year">Year</label>
-            <Field type="number" name="year" />
-            <ErrorMessage name="year" component="div" />
-          </div>
+                      <label htmlFor="title">Title</label>
+                      <Field type="text" id="title" name="title" />
+                      <ErrorMessage name="title" component="div" />
+                    </div>
+          {/* Add New Publisher Section */}
           <div className="form-group">
             <label htmlFor="publisher">Publisher</label>
-            <Field as="select" name="publisher">
+            <Field as="select" id="publisher" name="publisher">
               <option value="">Select a publisher</option>
-              {publishers.map(publisher => (
-                <option key={publisher.id} value={publisher.id}>{publisher.name}</option>
+              {publishers.map((publisher) => (
+                <option key={publisher.id} value={publisher.id}>
+                  {publisher.name}
+                </option>
               ))}
             </Field>
+            <input
+              type="text"
+              value={newPublisher}
+              onChange={(e) => setNewPublisher(e.target.value)}
+              placeholder="Add new publisher"
+            />
+            <button
+              type="button"
+              onClick={() => {
+                if (newPublisher) {
+                  setPublishers([...publishers, { id: Date.now(), name: newPublisher }]);
+                  setNewPublisher('');
+                }
+              }}
+            >
+              Add Publisher
+            </button>
             <ErrorMessage name="publisher" component="div" />
-            <div>
-              <input
-                type="text"
-                value={newPublisher}
-                onChange={(e) => setNewPublisher(e.target.value)}
-                placeholder="Add new publisher"
-              />
-              <button type="button" onClick={addPublisher}>Add Publisher</button>
-            </div>
           </div>
+
+          {/* Add New Genre Section */}
           <div className="form-group">
-            <label>Genres</label>
-            {genres.map(genre => (
-              <div key={genre.name}>
+            <label htmlFor="genres">Genres</label>
+            {genres.map((genre, index) => (
+              <div key={index}>
                 <label>
-                  <Field type="checkbox" name="genres" value={genre.name} />
+                  <Field
+                    type="checkbox"
+                    name="genres"
+                    value={genre.name}
+                  />
                   {genre.name}
                 </label>
               </div>
             ))}
+            <input
+              type="text"
+              value={newGenre}
+              onChange={(e) => setNewGenre(e.target.value)}
+              placeholder="Add new genre"
+            />
+            <button
+              type="button"
+              onClick={() => {
+                if (newGenre) {
+                  setGenres([...genres, { name: newGenre }]);
+                  setNewGenre('');
+                }
+              }}
+            >
+              Add Genre
+            </button>
             <ErrorMessage name="genres" component="div" />
-            <div className="new-genre-container">
-              <input
-                type="text"
-                value={newGenre}
-                onChange={(e) => setNewGenre(e.target.value)}
-                placeholder="Add new genre"
-              />
-              <button type="button" onClick={addGenre}>Add Genre</button>
-            </div>
+          </div>
+
+          {/* Comic Book Form Fields */}
+         
+          <div className="form-group">
+            <label htmlFor="rating">Rating</label>
+            <Field type="number" id="rating" name="rating" />
+            <ErrorMessage name="rating" component="div" />
           </div>
           <div className="form-group">
             <label htmlFor="image">Image</label>
             <input
-              type="file"
               id="image"
               name="image"
+              type="file"
               accept="image/*"
-              onChange={(event) => setFieldValue('image', event.currentTarget.files[0])}
+              onChange={(event) => {
+                setFieldValue("image", event.currentTarget.files[0]);
+              }}
             />
-            <ErrorMessage name="image" component="div" />
-          </div>
-          <div className="form-group">
-            <label htmlFor="rating">Rating</label>
-            <Field type="number" name="rating" />
-            <ErrorMessage name="rating" component="div" />
           </div>
           <button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? 'Submitting...' : 'Submit'}
+            {isSubmitting ? 'Adding...' : 'Add Comic Book'}
           </button>
         </Form>
       )}
@@ -174,4 +180,3 @@ const ComicBookForm = () => {
 };
 
 export default ComicBookForm;
-
