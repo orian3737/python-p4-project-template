@@ -12,7 +12,7 @@ app.config.from_object(Config)
 
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
-CORS(app, resources={r"/api/*": {"origins": "http://localhost:3000"}})
+CORS(app, resources={r"/api/*": {"origins": "*"}})
 api = Api(app)
 
 # Models
@@ -181,6 +181,40 @@ def get_publishers():
         return jsonify([{'id': p.id, 'name': p.name} for p in publishers])
     except Exception as e:
         app.logger.error(f"Error fetching publishers: {str(e)}")
+        return {'error': 'Internal Server Error'}, 500
+
+@app.route('/api/publishers', methods=['POST'])
+def add_publisher():
+    try:
+        data = request.json
+        name = data.get('name')
+        if not name:
+            return {'error': 'Publisher name is required'}, 400
+        
+        new_publisher = Publisher(name=name)
+        db.session.add(new_publisher)
+        db.session.commit()
+        
+        return {'id': new_publisher.id, 'name': new_publisher.name}, 201
+    except Exception as e:
+        app.logger.error(f"Error adding publisher: {str(e)}")
+        return {'error': 'Internal Server Error'}, 500
+
+@app.route('/api/genres', methods=['POST'])
+def add_genre():
+    try:
+        data = request.json
+        name = data.get('name')
+        if not name:
+            return {'error': 'Genre name is required'}, 400
+        
+        new_genre = Genre(name=name)
+        db.session.add(new_genre)
+        db.session.commit()
+        
+        return {'id': new_genre.id, 'name': new_genre.name}, 201
+    except Exception as e:
+        app.logger.error(f"Error adding genre: {str(e)}")
         return {'error': 'Internal Server Error'}, 500
 
 @app.route('/static/<path:filename>')
