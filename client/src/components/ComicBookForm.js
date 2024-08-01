@@ -6,7 +6,7 @@ import '../styles/comicBookStyles.css';
 
 const ComicBookForm = () => {
   const [publishers, setPublishers] = useState([]);
-  const [genres] = useState([
+  const [genres, setGenres] = useState([
     { name: 'Action' },
     { name: 'Adventure' },
     { name: 'Fantasy' },
@@ -14,6 +14,7 @@ const ComicBookForm = () => {
     { name: 'Horror' },
   ]);
   const [newPublisher, setNewPublisher] = useState('');
+  const [newGenre, setNewGenre] = useState('');
 
   useEffect(() => {
     fetch('/api/publishers')
@@ -21,6 +22,28 @@ const ComicBookForm = () => {
       .then(data => setPublishers(data))
       .catch(error => console.error('Error fetching publishers:', error));
   }, []);
+
+  const addPublisher = async () => {
+    if (!newPublisher) return;
+    try {
+      const response = await axios.post('http://localhost:5555/api/publishers', { name: newPublisher });
+      setPublishers([...publishers, { id: response.data.id, name: newPublisher }]);
+      setNewPublisher('');
+    } catch (error) {
+      console.error('Error adding publisher:', error);
+    }
+  };
+
+  const addGenre = async () => {
+    if (!newGenre) return;
+    try {
+      const response = await axios.post('http://localhost:5555/api/genres', { name: newGenre });
+      setGenres([...genres, { name: newGenre }]);
+      setNewGenre('');
+    } catch (error) {
+      console.error('Error adding genre:', error);
+    }
+  };
 
   const initialValues = {
     title: '',
@@ -94,6 +117,15 @@ const ComicBookForm = () => {
               ))}
             </Field>
             <ErrorMessage name="publisher" component="div" />
+            <div>
+              <input
+                type="text"
+                value={newPublisher}
+                onChange={(e) => setNewPublisher(e.target.value)}
+                placeholder="Add new publisher"
+              />
+              <button type="button" onClick={addPublisher}>Add Publisher</button>
+            </div>
           </div>
           <div className="form-group">
             <label>Genres</label>
@@ -106,6 +138,15 @@ const ComicBookForm = () => {
               </div>
             ))}
             <ErrorMessage name="genres" component="div" />
+            <div className="new-genre-container">
+              <input
+                type="text"
+                value={newGenre}
+                onChange={(e) => setNewGenre(e.target.value)}
+                placeholder="Add new genre"
+              />
+              <button type="button" onClick={addGenre}>Add Genre</button>
+            </div>
           </div>
           <div className="form-group">
             <label htmlFor="image">Image</label>
@@ -133,3 +174,4 @@ const ComicBookForm = () => {
 };
 
 export default ComicBookForm;
+

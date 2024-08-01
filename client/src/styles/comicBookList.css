@@ -106,3 +106,49 @@
 .delete-button:hover {
     background-color: #333; 
 }
+
+/* In src/styles/comicBookList.css */
+.edit-form {
+    position: fixed;
+    top: 20%;
+    left: 50%;
+    transform: translate(-50%, 0);
+    background-color: #fff;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    max-width: 500px;
+    z-index: 1000;
+}
+
+.edit-form h2 {
+    margin-top: 0;
+}
+
+.edit-form label {
+    display: block;
+    margin-bottom: 10px;
+}
+
+.edit-form input {
+    width: 100%;
+    padding: 8px;
+    margin-top: 5px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.edit-form button {
+    background-color: #0e0101;
+    color: white;
+    border: none;
+    padding: 10px;
+    border-radius: 5px;
+    cursor: pointer;
+    margin-top: 10px;
+}
+
+.edit-form button:hover {
+    background-color: #ff1a1a;
+}

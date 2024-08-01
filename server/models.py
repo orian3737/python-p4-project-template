@@ -8,11 +8,10 @@ class ComicBook(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(100), nullable=False)
     publisher_id = db.Column(db.Integer, db.ForeignKey('publisher.id'), nullable=False)
-    publisher = db.relationship('Publisher', backref=db.backref('comic_books', lazy=True))
+    publisher = db.relationship('Publisher', backref=db.backref('comic_books', lazy='subquery'))
     rating = db.Column(db.Float, nullable=False)
     reviews = db.Column(db.Integer, nullable=False)
-    image_url = db.Column(db.String(255), nullable=True)  
-
+    image_url = db.Column(db.String(255), nullable=True)
 
 class Genre(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -24,5 +23,5 @@ class ComicBookGenre(db.Model):
     genre_id = db.Column(db.Integer, db.ForeignKey('genre.id'), nullable=False)
     user_rating = db.Column(db.Float, nullable=False)
     
-    comic_book = db.relationship('ComicBook', backref=db.backref('comic_book_genres', lazy=True))
-    genre = db.relationship('Genre', backref=db.backref('comic_book_genres', lazy=True))
+    comic_book = db.relationship('ComicBook', backref=db.backref('comic_book_genres', lazy='subquery'))
+    genre = db.relationship('Genre', backref=db.backref('comic_book_genres', lazy='subquery'))

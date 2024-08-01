@@ -24,7 +24,7 @@ class ComicBook(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(100), nullable=False)
     publisher_id = db.Column(db.Integer, db.ForeignKey('publisher.id'), nullable=False)
-    publisher = db.relationship('Publisher', backref=db.backref('comic_books', lazy=True))
+    publisher = db.relationship('Publisher', backref=db.backref('comic_books', lazy='subquery'))
     rating = db.Column(db.Float, nullable=False)
     reviews = db.Column(db.Integer, nullable=False)
     image_url = db.Column(db.String(255), nullable=True)
@@ -39,8 +39,8 @@ class ComicBookGenre(db.Model):
     genre_id = db.Column(db.Integer, db.ForeignKey('genre.id'), nullable=False)
     user_rating = db.Column(db.Float, nullable=False)
     
-    comic_book = db.relationship('ComicBook', backref=db.backref('comic_book_genres', lazy=True))
-    genre = db.relationship('Genre', backref=db.backref('comic_book_genres', lazy=True))
+    comic_book = db.relationship('ComicBook', backref=db.backref('comic_book_genres', lazy='subquery'))
+    genre = db.relationship('Genre', backref=db.backref('comic_book_genres', lazy='subquery'))
 
 # Resources
 class ComicBookResource(Resource):
@@ -57,11 +57,11 @@ class ComicBookResource(Resource):
                     {
                         'id': cb.id,
                         'title': cb.title,
-                        'publisher': cb.publisher.name,
+                        'publisher': cb.publisher.name if cb.publisher else 'Unknown Publisher',
                         'rating': cb.rating,
                         'reviews': cb.reviews,
                         'image_url': f'/static/images/{cb.image_url}' if cb.image_url else None,
-                        'genres': [cg.genre.name for cg in cb.comic_book_genres]
+                        'genres': [cg.genre.name if cg.genre else 'Unknown Genre' for cg in cb.comic_book_genres]
                     } for cb in comic_books
                 ], 200
             else:
@@ -71,11 +71,11 @@ class ComicBookResource(Resource):
                 return {
                     'id': comic_book.id,
                     'title': comic_book.title,
-                    'publisher': comic_book.publisher.name,
+                    'publisher': comic_book.publisher.name if comic_book.publisher else 'Unknown Publisher',
                     'rating': comic_book.rating,
                     'reviews': comic_book.reviews,
                     'image_url': f'/static/images/{comic_book.image_url}' if comic_book.image_url else None,
-                    'genres': [cg.genre.name for cg in comic_book.comic_book_genres]
+                    'genres': [cg.genre.name if cg.genre else 'Unknown Genre' for cg in comic_book.comic_book_genres]
                 }, 200
         except Exception as e:
             app.logger.error(f"Error fetching comic books: {str(e)}")
@@ -85,14 +85,14 @@ class ComicBookResource(Resource):
         try:
             title = request.form.get('title')
             publisher_id = request.form.get('publisher')
-            rating = request.form.get('rating')
+            rating = float(request.form.get('rating', 0.0))
             genres = request.form.getlist('genres[]')
             image = request.files.get('image')
 
             # Set default image_url if no image is uploaded
             image_url = None
 
-            if image:
+            if image and image.filename:
                 filename = secure_filename(image.filename)
                 image_url = filename
                 image.save(os.path.join('static/images', filename))
@@ -123,6 +123,36 @@ class ComicBookResource(Resource):
             app.logger.error(f"Error adding comic book: {str(e)}")
             return {'error': 'Internal Server Error'}, 500
         
+    def put(self, comic_book_id):
+        try:
+            data = request.json
+            comic_book = ComicBook.query.get(comic_book_id)
+            if comic_book is None:
+                return {'error': 'Comic book not found'}, 404
+            
+            comic_book.title = data.get('title', comic_book.title)
+            comic_book.publisher_id = data.get('publisher_id', comic_book.publisher_id)
+            comic_book.rating = data.get('rating', comic_book.rating)
+            comic_book.reviews = data.get('reviews', comic_book.reviews)
+            
+            image = data.get('image_url')
+            if image:
+                comic_book.image_url = image
+
+            db.session.commit()
+
+            return {
+                'id': comic_book.id,
+                'title': comic_book.title,
+                'publisher': comic_book.publisher.name if comic_book.publisher else 'Unknown Publisher',
+                'rating': comic_book.rating,
+                'reviews': comic_book.reviews,
+                'image_url': f'/static/images/{comic_book.image_url}' if comic_book.image_url else None
+            }, 200
+        except Exception as e:
+            app.logger.error(f"Error updating comic book: {str(e)}")
+            return {'error': 'Internal Server Error'}, 500
+
     def delete(self, comic_book_id):
         try:
             comic_book = ComicBook.query.get(comic_book_id)
