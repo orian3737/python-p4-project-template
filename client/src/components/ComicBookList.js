@@ -78,24 +78,6 @@ const ComicBookList = () => {
         }
     }, [searchTerm, routeSearchTerm, comicId]);
 
-    useEffect(() => {
-        const fetchData = async () => {
-            try {
-                const [comicsResponse, genresResponse] = await Promise.all([
-                    fetch('http://localhost:5555/api/comicbooks'),
-                    fetch('http://localhost:5555/api/genres')
-                ]);
-                const comicsData = await comicsResponse.json();
-                const genresData = await genresResponse.json();
-                setComicBooks(comicsData);
-                setGenres(genresData);
-            } catch (error) {
-                console.error('Error fetching data:', error);
-            }
-        };
-        fetchData();
-    }, []);
-
     const handleComicClick = (comic) => {
         setSelectedComic(comic);
     };
@@ -122,12 +104,14 @@ const ComicBookList = () => {
             .catch(error => console.error('Error deleting comic book:', error));
     };
 
-    const handleEditClick = (comic) => {
+    const handleEditClick = (comic, event) => {
+        event.stopPropagation();  // Prevents the click from affecting other parts of the UI
         setEditForm({
             ...comic,
             genre_ids: comic.genres.map(genre => genre.name).join(', '),
             reviews: comic.reviews
         });
+        setSelectedComic(null);  // Ensure selected comic view is not displayed
     };
 
     const handleEditChange = (e) => {
@@ -259,30 +243,28 @@ const ComicBookList = () => {
                         src={selectedComic.image_url ? `http://localhost:5555${selectedComic.image_url}` : 'default-image-url'}
                         alt={selectedComic.title}
                     />
-                    <p>Genres: {selectedComic.genres.map(genre => genre.name).join(', ')}</p>
                     <button onClick={handleCloseComic}>Close</button>
                 </div>
             ) : (
-                <div className="comic-books-container">
-                    {comicBooks.length > 0 ? (
-                        comicBooks.map(comic => (
-                            <div className="comic-card" key={comic.id} onClick={() => handleComicClick(comic)}>
-                                <h2>{comic.title}</h2>
-                                <p>Publisher: {comic.publisher}</p>
-                                <p>Rating: {comic.rating}</p>
-                                <p>Reviews: {comic.reviews}</p>
-                                <img
-                                    src={comic.image_url ? `http://localhost:5555${comic.image_url}` : 'default-image-url'}
-                                    alt={comic.title}
-                                />
-                                <p>Genres: Action</p> {/* Display "Action" for all comics */}
+                <div className="comic-list">
+                    {comicBooks.map(comic => (
+                        <div
+                            key={comic.id}
+                            className={`comic-card ${selectedComic && selectedComic.id === comic.id ? 'comic-card-selected' : ''}`}
+                            onClick={() => handleComicClick(comic)}
+                        >
+                            <h3>{comic.title}</h3>
+                            <img
+                                src={comic.image_url ? `http://localhost:5555${comic.image_url}` : 'default-image-url'}
+                                alt={comic.title}
+                            />
+                            <p>Rating: {comic.rating}</p>
+                            <div className="comic-card-buttons">
                                 <button onClick={(e) => handleEditClick(comic, e)}>Edit</button>
                                 <button onClick={(e) => handleDelete(comic.id, e)}>Delete</button>
                             </div>
-                        ))
-                    ) : (
-                        <p>No comic books available</p>
-                    )}
+                        </div>
+                    ))}
                 </div>
             )}
         </div>

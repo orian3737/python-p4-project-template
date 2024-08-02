@@ -87,7 +87,7 @@ class ComicBookResource(Resource):
                     } for cb in comic_books
                 ], 200
             else:
-                comic_book = ComicBook.query.get(comic_book_id)
+                comic_book = db.session.get(ComicBook, comic_book_id)
                 if comic_book is None:
                     return {'error': 'Comic book not found'}, 404
                 return {
@@ -148,7 +148,7 @@ class ComicBookResource(Resource):
     def put(self, comic_book_id):
         try:
             data = request.json
-            comic_book = ComicBook.query.get(comic_book_id)
+            comic_book = db.session.get(ComicBook, comic_book_id)
             if comic_book is None:
                 return {'error': 'Comic book not found'}, 404
             
@@ -177,16 +177,21 @@ class ComicBookResource(Resource):
 
     def delete(self, comic_book_id):
         try:
-            comic_book = ComicBook.query.get(comic_book_id)
+            comic_book = db.session.get(ComicBook, comic_book_id)
             if comic_book is None:
                 return {'error': 'Comic book not found'}, 404
             
+            # Delete associated comic_book_genre entries first
+            ComicBookGenre.query.filter_by(comic_book_id=comic_book_id).delete()
+            
+            # Now delete the comic book
             db.session.delete(comic_book)
             db.session.commit()
             return {'message': 'Comic book deleted successfully!'}, 200
         except Exception as e:
             app.logger.error(f"Error deleting comic book: {str(e)}")
             return {'error': 'Internal Server Error'}, 500
+
 class GenreResource(Resource):
     def get(self):
         try:
@@ -195,7 +200,6 @@ class GenreResource(Resource):
         except Exception as e:
             app.logger.error(f"Error fetching genres: {str(e)}")
             return {'error': 'Internal Server Error'}, 500
-
 
 # Resources
 api.add_resource(GenreResource, '/api/genres')

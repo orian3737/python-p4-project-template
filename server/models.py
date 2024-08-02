@@ -1,4 +1,5 @@
 from app import db
+from sqlalchemy.orm import validates
 
 class Publisher(db.Model):
     id = db.Column(db.Integer, primary_key=True)
